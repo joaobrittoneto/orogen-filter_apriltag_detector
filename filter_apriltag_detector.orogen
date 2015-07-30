@@ -7,11 +7,11 @@ import_types_from "base"
 task_context "Task" do
     needs_configuration
 
-    property "threshold", "double"
+    property "threshold", "std/vector<double>"
 
     input_port "pose_sample", "base/samples/RigidBodyState"
-
     output_port "output", "base/samples/RigidBodyState"
+    output_port "out_sec_diff", "std/vector<double>"
 
     port_driven 'pose_sample'
 end

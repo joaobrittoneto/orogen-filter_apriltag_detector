@@ -30,13 +30,9 @@ tasks/Task.cpp, and will be put in the filter_apriltag_detector namespace.
 	friend class TaskBase;
     protected:
 
-	std::queue<base::samples::RigidBodyState> queueSamples;
-	double gThreshold;
-	bool first_time;
-	base::samples::RigidBodyState lastSample;
-	base::samples::RigidBodyState filteredSample;
-	bool outlierDetected(base::samples::RigidBodyState &sample, std::vector<bool> &outlier);
-	bool removeOutlier(base::samples::RigidBodyState &input, base::samples::RigidBodyState &ouput, std::vector<bool> &outlier);
+    std::vector<double> thresh;
+    std::vector<base::samples::RigidBodyState> rbs_vector;
+    void outlierFilter(std::vector<base::samples::RigidBodyState> &rbs_vector, std::vector<double> &sec_diff);
 
 
 
