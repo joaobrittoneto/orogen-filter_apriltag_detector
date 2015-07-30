@@ -30,13 +30,8 @@ bool Task::configureHook()
         return false;
     else
     {
-    	gThreshold = _threshold.get();
-    	first_time = true;
-
-    	while(!queueSamples.empty())
-    	{
-    		queueSamples.pop();
-    	}
+        thresh = _threshold.get();
+        rbs_vector.clear();
 
     	return true;
     }
@@ -52,32 +47,22 @@ void Task::updateHook()
     TaskBase::updateHook();
 
     base::samples::RigidBodyState sample;
-    base::samples::RigidBodyState new_sample;
-    std::vector<bool> outlier;
-    outlier.resize(6);
-    for(int i=0; i<6; i++)
-    {
-    	outlier[i] = false;
-    }
-
     while (_pose_sample.read(sample) == RTT::NewData)
     {
-    	if(first_time)
-    	{
-    		lastSample = sample;
-    		first_time = false;
-    	}
-
-    	if(outlierDetected(sample, outlier))
-		{
-    		removeOutlier(sample, new_sample, outlier);
-		}
-    	else
-    		new_sample = sample;
-
-    	lastSample = new_sample;
-		queueSamples.push(new_sample);
-		_output.write(new_sample);
+        if (rbs_vector.size() < 3)
+        {
+            rbs_vector.push_back(sample);
+            _output.write(sample);
+        }
+        else
+        {
+            rbs_vector.push_back(sample);
+            std::vector<double> sec_diff(6);
+            outlierFilter(rbs_vector, sec_diff);
+            _output.write(rbs_vector[2]);
+            _out_sec_diff.write(sec_diff);
+            rbs_vector.erase(rbs_vector.begin());
+        }
     }
 
 }
@@ -94,71 +79,35 @@ void Task::cleanupHook()
     TaskBase::cleanupHook();
 }
 
-bool Task::outlierDetected(base::samples::RigidBodyState &sample, std::vector<bool> &outlier)
+void Task::outlierFilter(std::vector<base::samples::RigidBodyState> &rbs_vector, std::vector<double> &sec_diff)
 {
-	base::samples::RigidBodyState aux_sample = sample;
-	double step = (sample.time - lastSample.time).toSeconds();
+    double diff1, diff2;
+	double step1 = (rbs_vector[1].time - rbs_vector[0].time).toSeconds();
+	double step2 = (rbs_vector[2].time - rbs_vector[1].time).toSeconds();
 
-	bool outlierDetected = false;
-	double derivative;
+    for( int i = 0; i<3; ++i)
+    {
+    diff1 = (rbs_vector[1].position[i]-rbs_vector[0].position[i])/step1;
+    diff2 = (rbs_vector[2].position[i]-rbs_vector[1].position[i])/step2;
 
-	for(int i=0; i<3; i++)
-	{
-		if(step != 0)
-			derivative = (sample.position[i] - lastSample.position[i])/step;
-		else
-			derivative = 1000;
+    sec_diff[i] = (diff2-diff1)/step2;
+    }
+    
+    //second derivative of Roll
+    diff1 = ((base::getRoll(rbs_vector[1].orientation)) - (base::getRoll(rbs_vector[0].orientation)))/step1;
+    diff2 = ((base::getRoll(rbs_vector[2].orientation)) - (base::getRoll(rbs_vector[1].orientation)))/step2;
+    sec_diff[3] = (diff2-diff1)/step2;
 
-		filteredSample.velocity[i] = derivative;
-		double change =  fabs(derivative - lastSample.velocity[i])/fabs(lastSample.velocity[i]);
+    //second derivative of Pitch
+    diff1 = ((base::getPitch(rbs_vector[1].orientation)) - (base::getRoll(rbs_vector[0].orientation)))/step1;
+    diff2 = ((base::getPitch(rbs_vector[2].orientation)) - (base::getRoll(rbs_vector[1].orientation)))/step2;
+    sec_diff[4] = (diff2-diff1)/step2;
 
-		if( change > gThreshold)
-		{
-			outlier[i] = true;
-			outlierDetected = true;
-		}
-	}
+    //second derivative of Yaw
+    diff1 = ((base::getYaw(rbs_vector[1].orientation)) - (base::getRoll(rbs_vector[0].orientation)))/step1;
+    diff2 = ((base::getYaw(rbs_vector[2].orientation)) - (base::getRoll(rbs_vector[1].orientation)))/step2;
+    sec_diff[5] = (diff2-diff1)/step2;
 
-	if(step != 0)
-		derivative = ((base::getRoll(sample.orientation)) - (base::getRoll(lastSample.orientation)))/step;
-	else
-		derivative = 1000;
-	filteredSample.angular_velocity[0] = derivative;
-	double change =  fabs(derivative - lastSample.angular_velocity[0])/fabs(lastSample.angular_velocity[0]);
-	if(change > gThreshold)
-	{
-		outlier[3] = true;
-		outlierDetected = true;
-	}
-
-	if(step != 0)
-		derivative = ((base::getPitch(sample.orientation)) - (base::getPitch(lastSample.orientation)))/step;
-	else
-		derivative = 1000;
-	filteredSample.angular_velocity[1] = derivative;
-	change =  fabs(derivative - lastSample.angular_velocity[1])/fabs(lastSample.angular_velocity[1]);
-	if(change > gThreshold)
-	{
-		outlier[4] = true;
-		outlierDetected = true;
-	}
-
-	if(step != 0)
-		derivative = ((base::getYaw(sample.orientation)) - (base::getYaw(lastSample.orientation)))/step;
-	else
-		derivative = 1000;
-	filteredSample.angular_velocity[2] = derivative;
-	change =  fabs(derivative - lastSample.angular_velocity[2])/fabs(lastSample.angular_velocity[2]);
-	if(change > gThreshold)
-	{
-		outlier[5] = true;
-		outlierDetected = true;
-	}
-
-	return outlierDetected;
+    
 }
 
-bool Task::removeOutlier(base::samples::RigidBodyState &input, base::samples::RigidBodyState &ouput, std::vector<bool> &outlier)
-{
-	return true;
-}
