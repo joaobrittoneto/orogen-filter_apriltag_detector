@@ -4,6 +4,7 @@
 #define FILTER_APRILTAG_DETECTOR_TASK_TASK_HPP
 
 #include "filter_apriltag_detector/TaskBase.hpp"
+#include <queue>
 
 namespace filter_apriltag_detector {
 
@@ -28,6 +29,14 @@ tasks/Task.cpp, and will be put in the filter_apriltag_detector namespace.
     {
 	friend class TaskBase;
     protected:
+
+	std::queue<base::samples::RigidBodyState> queueSamples;
+	double gThreshold;
+	bool first_time;
+	base::samples::RigidBodyState lastSample;
+	base::samples::RigidBodyState filteredSample;
+	bool outlierDetected(base::samples::RigidBodyState &sample, std::vector<bool> &outlier);
+	bool removeOutlier(base::samples::RigidBodyState &input, base::samples::RigidBodyState &ouput, std::vector<bool> &outlier);
 
 
 
