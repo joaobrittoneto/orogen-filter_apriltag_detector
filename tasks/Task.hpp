@@ -32,7 +32,7 @@ tasks/Task.cpp, and will be put in the filter_apriltag_detector namespace.
 
     std::vector<double> thresh;
     std::vector<base::samples::RigidBodyState> rbs_vector;
-    void outlierFilter(std::vector<base::samples::RigidBodyState> &rbs_vector, std::vector<double> &sec_diff);
+    void outlierFilter(std::vector<base::samples::RigidBodyState> &rbs_vector, std::vector<double> &sec_diff, base::samples::RigidBodyState &rbs_out);
 
 
 

@@ -58,8 +58,9 @@ void Task::updateHook()
         {
             rbs_vector.push_back(sample);
             std::vector<double> sec_diff(6);
-            outlierFilter(rbs_vector, sec_diff);
-            _output.write(rbs_vector[2]);
+            base::samples::RigidBodyState rbs_out;
+            outlierFilter(rbs_vector, sec_diff, rbs_out);
+            _output.write(rbs_out);
             _out_sec_diff.write(sec_diff);
             rbs_vector.erase(rbs_vector.begin());
         }
@@ -79,7 +80,7 @@ void Task::cleanupHook()
     TaskBase::cleanupHook();
 }
 
-void Task::outlierFilter(std::vector<base::samples::RigidBodyState> &rbs_vector, std::vector<double> &sec_diff)
+void Task::outlierFilter(std::vector<base::samples::RigidBodyState> &rbs_vector, std::vector<double> &sec_diff, base::samples::RigidBodyState &rbs_out)
 {
     double diff1, diff2;
 	double step1 = (rbs_vector[1].time - rbs_vector[0].time).toSeconds();
@@ -99,15 +100,22 @@ void Task::outlierFilter(std::vector<base::samples::RigidBodyState> &rbs_vector,
     sec_diff[3] = (diff2-diff1)/step2;
 
     //second derivative of Pitch
-    diff1 = ((base::getPitch(rbs_vector[1].orientation)) - (base::getRoll(rbs_vector[0].orientation)))/step1;
-    diff2 = ((base::getPitch(rbs_vector[2].orientation)) - (base::getRoll(rbs_vector[1].orientation)))/step2;
+    diff1 = ((base::getPitch(rbs_vector[1].orientation)) - (base::getPitch(rbs_vector[0].orientation)))/step1;
+    diff2 = ((base::getPitch(rbs_vector[2].orientation)) - (base::getPitch(rbs_vector[1].orientation)))/step2;
     sec_diff[4] = (diff2-diff1)/step2;
 
     //second derivative of Yaw
-    diff1 = ((base::getYaw(rbs_vector[1].orientation)) - (base::getRoll(rbs_vector[0].orientation)))/step1;
-    diff2 = ((base::getYaw(rbs_vector[2].orientation)) - (base::getRoll(rbs_vector[1].orientation)))/step2;
+    //diff1 = fabs(((base::getYaw(rbs_vector[1].orientation)) - (base::getYaw(rbs_vector[0].orientation))));
+    diff1 = ((base::getYaw(rbs_vector[1].orientation)) - (base::getYaw(rbs_vector[0].orientation)))/step1;
+    diff2 = ((base::getYaw(rbs_vector[2].orientation)) - (base::getYaw(rbs_vector[1].orientation)))/step2;
     sec_diff[5] = (diff2-diff1)/step2;
 
-    
+    if (sec_diff[5] >= thresh[5])
+    {
+        rbs_out = rbs_vector[2]; 
+        rbs_out.orientation = rbs_vector[1].orientation; 
+    }
+    else
+        rbs_out = rbs_vector[2];
 }
 
